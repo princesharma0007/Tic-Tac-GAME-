@@ -1,10 +1,10 @@
-
 var WINS=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
 var board,turn,over,mode,diff;
 var scores={X:0,O:0,D:0};
-var settings={anim:true,thought:true,first:'X'};
+var settings={anim:true,thought:true,variety:true,first:'X'};
 var firstPlayer='X',roundCount=0;
 var playerHistory={firstMoves:[],preferredCells:{},roundMoves:[]};
+var inputLocked=false;   // ← true while it's NOT the human player's turn
 
 var moveMemory={};
 function boardKey(b){return b.join('');}
@@ -24,6 +24,13 @@ function pickLeastUsed(key,candidates){
 function goTo(id){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});document.getElementById(id).classList.add('active');}
 function toggleSetting(k){settings[k]=!settings[k];document.getElementById('tog-'+k).classList.toggle('on',settings[k]);}
 
+function setBoardLocked(state){
+  inputLocked=state;
+  var b=document.getElementById('board');
+  if(!b)return;
+  if(state) b.classList.add('locked'); else b.classList.remove('locked');
+}
+
 function startGame(m,d){
   mode=m;diff=d||'easy';
   scores={X:0,O:0,D:0};
@@ -37,7 +44,7 @@ function startGame(m,d){
     document.getElementById('leg-o').textContent='AI win chance';
     var ind=document.getElementById('diff-ind');
     ind.style.display='inline-block';
-    var labels={easy:'\ud83c\udf3f Easy',medium:'\ud83d\udd25 Medium',hard:'\ud83d\udc7f Hard'};
+    var labels={easy:'🌿 Easy',medium:'🔥 Medium',hard:'👿 Hard'};
     var cls={easy:'di-easy',medium:'di-medium',hard:'di-hard'};
     ind.textContent=labels[diff];
     ind.className='diff-ind '+cls[diff];
@@ -64,8 +71,10 @@ function initBoard(){
   setThought('');
   setStatus(mode==='ai'&&turn==='X'?'Your turn':turn+"'s turn");
   highlight(turn);
-  updateWinBars();
-  if(mode==='ai'&&turn==='O'){setStatus('AI thinking\u2026');setTimeout(aiMove,700);}
+  resetWinBarsTo5050();
+  // Lock the board immediately if AI moves first this round
+  setBoardLocked(mode==='ai'&&turn==='O');
+  if(mode==='ai'&&turn==='O'){setStatus('AI thinking…');setTimeout(aiMove,700);}
 }
 
 function newRound(){roundCount++;firstPlayer=getFirstPlayer();initBoard();}
@@ -73,6 +82,7 @@ function goHome(){goTo('home');}
 
 function renderBoard(){
   var b=document.getElementById('board');b.innerHTML='';
+  if(inputLocked) b.classList.add('locked'); else b.classList.remove('locked');
   for(var i=0;i<9;i++){
     (function(idx){
       var c=document.createElement('div');
@@ -85,28 +95,51 @@ function renderBoard(){
 }
 
 function clickCell(i){
-  if(over||board[i])return;
+  // Single source of truth: blocked if game over, cell taken, OR it isn't
+  // the human's turn to move (input is locked while AI is "thinking").
+  if(over||board[i]||inputLocked)return;
+
   playerHistory.preferredCells[i]=(playerHistory.preferredCells[i]||0)+1;
   playerHistory.roundMoves.push(i);
   if(playerHistory.roundMoves.length===1)playerHistory.firstMoves.push(i);
+
   board[i]=turn;renderBoard();
   updateWinBars();
   var w=getWin();if(w){endGame(w);return;}
   if(isDraw()){endDraw();return;}
+
   turn=turn==='X'?'O':'X';
-  if(mode==='ai'&&turn==='O'){setStatus('AI thinking\u2026');var delay=diff==='easy'?300:diff==='medium'?500:600;setTimeout(aiMove,delay);}
-  else{setStatus(mode==='ai'?'Your turn':turn+"'s turn");highlight(turn);}
+
+  if(mode==='ai'&&turn==='O'){
+    setBoardLocked(true);              // ← lock immediately, before the delay
+    setStatus('AI thinking…');
+    var delay=diff==='easy'?300:diff==='medium'?500:600;
+    setTimeout(aiMove,delay);
+  } else {
+    setBoardLocked(false);
+    setStatus(mode==='ai'?'Your turn':turn+"'s turn");
+    highlight(turn);
+  }
+}
+
+function resetWinBarsTo5050(){
+  document.getElementById('bar-x').style.height='50%';
+  document.getElementById('bar-o').style.height='50%';
+  document.getElementById('bar-d').style.width='0%';
+  document.getElementById('pct-x').textContent='50%';
+  document.getElementById('pct-o').textContent='50%';
+  document.getElementById('pct-d').textContent='0%';
+  document.getElementById('tag-x').textContent='Even';document.getElementById('tag-x').className='chance-tag tag-even';
+  document.getElementById('tag-o').textContent='Even';document.getElementById('tag-o').className='chance-tag tag-even';
 }
 
 function computeWinProbability(){
-  var simCount=200,xWins=0,oWins=0,draws=0;
+  var simCount=250,xWins=0,oWins=0,draws=0;
   var empty=getEmpty(board);
-  if(!empty.length||getWinOn(board)){
-    var w=getWinOn(board);
-    if(w==='X')return{x:100,o:0,d:0};
-    if(w==='O')return{x:0,o:100,d:0};
-    return{x:0,o:0,d:100};
-  }
+  var w0=getWinOn(board);
+  if(w0==='X')return{x:100,o:0,d:0};
+  if(w0==='O')return{x:0,o:100,d:0};
+  if(!empty.length)return{x:0,o:0,d:100};
   for(var s=0;s<simCount;s++){
     var sim=board.slice(),simTurn=turn,result=null,moves=empty.slice();
     for(var i=moves.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=moves[i];moves[i]=moves[j];moves[j]=t;}
@@ -211,45 +244,67 @@ function bestMovesFull(b,player){
   return scored.filter(function(s){return s.score===best;}).map(function(s){return s.idx;});
 }
 
-function aiEasy(){setThought('Playing randomly\u2026');var e=getEmpty(board);return e[Math.floor(Math.random()*e.length)];}
+function variedOpeningReply(b){
+  var filled=getEmpty(b).length===8;
+  if(!filled) return null;
+  var xMove=-1;
+  for(var i=0;i<9;i++) if(b[i]==='X') xMove=i;
+  var corners=[0,2,6,8], edges=[1,3,5,7], center=4;
+  if(xMove===center) return null;
+  if(corners.indexOf(xMove)>-1){
+    var r=Math.random();
+    if(r<0.7){ setThought('Taking center — the safest reply'); return center; }
+    setThought('Trying a riskier opening for variety…');
+    var alt=corners.filter(function(c){return c!==xMove;}).concat(edges);
+    return alt[Math.floor(Math.random()*alt.length)];
+  }
+  if(edges.indexOf(xMove)>-1){
+    var r2=Math.random();
+    if(r2<0.7){ setThought('Taking center — strongest reply'); return center; }
+    setThought('Trying a different opening this time…');
+    return corners[Math.floor(Math.random()*corners.length)];
+  }
+  return null;
+}
+
+function aiEasy(){setThought('Playing randomly…');var e=getEmpty(board);return e[Math.floor(Math.random()*e.length)];}
 
 function aiMedium(){
   var b=board.slice();
   var win=findWinBlock(b,'O');if(win!==null){setThought('I see a winning move!');return win;}
-  var block=findWinBlock(b,'X');if(block!==null){setThought('Blocking your move\u2026');return block;}
+  var block=findWinBlock(b,'X');if(block!==null){setThought('Blocking your move…');return block;}
   if(Math.random()<0.6){
     var order=[4,0,2,6,8,1,3,5,7];
     for(var i=0;i<order.length;i++){
-      if(!b[order[i]]&&Math.random()<0.7){setThought('Taking a strong position\u2026');return order[i];}
+      if(!b[order[i]]&&Math.random()<0.7){setThought('Taking a strong position…');return order[i];}
     }
   }
-  setThought('Hmm, thinking\u2026');
+  setThought('Hmm, thinking…');
   var e=getEmpty(b);return e[Math.floor(Math.random()*e.length)];
 }
 
 function aiHard(){
   var b=board.slice();
   var key=boardKey(b);
-
   var win=findWinBlock(b,'O');
   if(win!==null){setThought('Found a winning move!');recordMove(key,win);return win;}
-
   var block=findWinBlock(b,'X');
   if(block!==null){setThought('Blocking your winning move!');recordMove(key,block);return block;}
-
+  if(settings.variety){
+    var opening=variedOpeningReply(b);
+    if(opening!==null){recordMove(key,opening);return opening;}
+  }
   var bf=blockFork(b);
   if(bf!==null){
     var choice=Array.isArray(bf)?pickLeastUsed(key,bf):bf;
     setThought('Blocking your fork attempt!');recordMove(key,choice);return choice;
   }
-
   var forks=findAllForks(b,'O');
   if(forks.length){
     var fc=pickLeastUsed(key,forks);
     setThought('Setting up a fork trap!');recordMove(key,fc);return fc;
   }
-
-  setThought('Calculating optimal move\u2026');
+  setThought('Calculating optimal move…');
   var top=bestMovesFull(b,'O');
   var chosen=pickLeastUsed(key,top);
   recordMove(key,chosen);
@@ -257,7 +312,7 @@ function aiHard(){
 }
 
 function aiMove(){
-  if(over)return;
+  if(over){setBoardLocked(false);return;}
   var idx;
   if(diff==='easy')idx=aiEasy();
   else if(diff==='medium')idx=aiMedium();
@@ -266,9 +321,13 @@ function aiMove(){
   board[idx]='O';renderBoard();
   updateWinBars();
   if(diff==='hard')document.getElementById('memo-note').textContent='AI remembers '+Object.keys(moveMemory).length+' positions played';
-  var w=getWin();if(w){endGame(w);return;}
+  var w=getWin();
+  if(w){endGame(w);return;}
   if(isDraw()){endDraw();return;}
-  turn='X';setStatus('Your turn');highlight('X');
+  turn='X';
+  setBoardLocked(false);     // ← unlock: it's the human's turn again
+  setStatus('Your turn');
+  highlight('X');
 }
 
 function getEmpty(b){var e=[];for(var i=0;i<9;i++)if(!b[i])e.push(i);return e;}
@@ -278,25 +337,28 @@ function isDraw(){return board.every(function(v){return v!=='';});}
 
 function endGame(line){
   over=true;
+  setBoardLocked(false); // unlock visually; .over check still blocks new clicks
   var winLine=null;
   for(var i=0;i<WINS.length;i++){var l=WINS[i];if(board[l[0]]&&board[l[0]]===board[l[1]]&&board[l[0]]===board[l[2]]){winLine=l;break;}}
   var wp=winLine?board[winLine[0]]:turn;
   scores[wp]++;document.getElementById('sc-'+wp.toLowerCase()).textContent=scores[wp];
   if(winLine){var cells=document.getElementById('board').children;for(var i=0;i<winLine.length;i++){(function(ci){setTimeout(function(){cells[ci].classList.add('win-cell');},ci*80);})(winLine[i]);}}
-  var who=mode==='ai'&&wp==='O'?'AI wins! \ud83e\udd16':mode==='ai'&&wp==='X'?'You win! \ud83c\udf89':wp+' wins! \ud83c\udf89';
+  var who=mode==='ai'&&wp==='O'?'AI wins! 🤖':mode==='ai'&&wp==='X'?'You win! 🎉':wp+' wins! 🎉';
   setTimeout(function(){setStatus('<span class="win-txt">'+who+'</span>');setThought('');setFinalBars(wp);},300);
   document.getElementById('box-x').classList.remove('active');document.getElementById('box-o').classList.remove('active');
 }
 
 function endDraw(){
-  over=true;scores.D++;document.getElementById('sc-d').textContent=scores.D;
-  setStatus('<span class="draw-txt">Draw! \ud83e\udd1d</span>');setThought('');setFinalBars('D');
+  over=true;
+  setBoardLocked(false);
+  scores.D++;document.getElementById('sc-d').textContent=scores.D;
+  setStatus('<span class="draw-txt">Draw! 🤝</span>');setThought('');setFinalBars('D');
   document.getElementById('box-x').classList.remove('active');document.getElementById('box-o').classList.remove('active');
 }
 
 function setStatus(html){document.getElementById('game-status').innerHTML=html;}
-function setThought(txt){var el=document.getElementById('ai-thought');if(settings.thought&&mode==='ai'&&txt)el.textContent='\ud83e\udd16 '+txt;else el.textContent='';}
+function setThought(txt){var el=document.getElementById('ai-thought');if(settings.thought&&mode==='ai'&&txt)el.textContent='🤖 '+txt;else el.textContent='';}
 function highlight(t){document.getElementById('box-x').classList.toggle('active',t==='X');document.getElementById('box-o').classList.toggle('active',t==='O');}
 
 renderBoard();
-updateWinBars();
+resetWinBarsTo5050();
