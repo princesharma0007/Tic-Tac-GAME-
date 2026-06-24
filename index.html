@@ -4,18 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tic Tac Toe - Dynamic AI</title>
-<link rel="stylesheet" href="Style.css">
+<link rel="stylesheet" href="style.css">
 <script src="index.js"></script>
 </head>
 <body>
 <div class="app">
-
   <div class="screen active" id="home">
     <div class="logo">TIC TAC TOE</div>
-    <div class="logo-sub">Dynamic Adaptive AI - PRINCE SHARMA</div>
+    <div class="logo-sub">Dynamic Adaptive AI | PRINCE SHARMA </div>
     <button class="home-btn btn-new" onclick="goTo('modeSelect')">&#9654; New Game</button>
     <button class="home-btn btn-settings" onclick="goTo('settings')">&#9881; Settings</button>
-    <div style="margin-top:14px;font-size:11px;color:#374151">v6.0 — Non-repetitive AI</div>
+    <div style="margin-top:14px;font-size:11px;color:#374151">v11.0 — Win/Loss/Draw animations</div>
   </div>
 
   <div class="screen" id="modeSelect">
@@ -37,7 +36,7 @@
     <div class="screen-sub">Choose your challenge</div>
     <div class="diff-card easy" onclick="startGame('ai','easy')">
       <div class="diff-icon">&#127808;</div>
-      <div class="diff-info"><div class="diff-title">Easy</div><div class="diff-desc">Random moves, no adaptation</div><div class="stars">&#9733;&#9734;&#9734;</div></div>
+      <div class="diff-info"><div class="diff-title">Easy</div><div class="diff-desc">Random moves — great for beginners</div><div class="stars">&#9733;&#9734;&#9734;</div></div>
       <div class="diff-badge">EASY</div>
     </div>
     <div class="diff-card medium" onclick="startGame('ai','medium')">
@@ -47,7 +46,7 @@
     </div>
     <div class="diff-card hard" onclick="startGame('ai','hard')">
       <div class="diff-icon">&#128127;</div>
-      <div class="diff-info"><div class="diff-title">Hard</div><div class="diff-desc">Full minimax + fork traps + move memory — varies its play, never repeats a losing pattern, unbeatable</div><div class="stars">&#9733;&#9733;&#9733;</div></div>
+      <div class="diff-info"><div class="diff-title">Hard</div><div class="diff-desc">Full minimax + fork traps + memory + varied openings — unbeatable</div><div class="stars">&#9733;&#9733;&#9733;</div></div>
       <div class="diff-badge">HARD</div>
     </div>
     <button class="back-btn" onclick="goTo('modeSelect')">&#8592; Back</button>
@@ -64,6 +63,10 @@
       <div class="setting-row">
         <div><div class="setting-label">Show AI thoughts</div><div class="setting-sub">Display active AI strategy</div></div>
         <button class="toggle on" id="tog-thought" onclick="toggleSetting('thought')"></button>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">Opening variety</div><div class="setting-sub">Hard: occasionally risks a non-center reply</div></div>
+        <button class="toggle on" id="tog-variety" onclick="toggleSetting('variety')"></button>
       </div>
       <div class="setting-row">
         <div><div class="setting-label">First player</div><div class="setting-sub">Who goes first</div></div>
@@ -85,7 +88,7 @@
         <div class="score-num cx-c" id="sc-x">0</div>
       </div>
       <div class="score-box" style="background:#111827;border-color:#1f2937">
-        <div class="score-sym d-c">&#8212;</div>
+        <div class="score-sym d-c">—</div>
         <div class="score-lbl">Draws</div>
         <div class="score-num d-c" id="sc-d">0</div>
       </div>
@@ -95,17 +98,14 @@
         <div class="score-num co-c" id="sc-o">0</div>
       </div>
     </div>
-
     <div class="diff-ind" id="diff-ind" style="display:none"></div>
     <div class="ai-thought" id="ai-thought"></div>
     <div class="game-status" id="game-status">Your turn</div>
-
     <div class="legend">
-      <div class="leg-item"><div class="leg-dot" style="background:#60a5fa"></div><span id="leg-x">X win chance</span></div>
+      <div class="leg-item"><div class="leg-dot" style="background:#60a5fa"></div><span id="leg-x">X win %</span></div>
       <div class="leg-item"><div class="leg-dot" style="background:#6b7280"></div><span>Draw</span></div>
-      <div class="leg-item"><div class="leg-dot" style="background:#f472b6"></div><span id="leg-o">O win chance</span></div>
+      <div class="leg-item"><div class="leg-dot" style="background:#f472b6"></div><span id="leg-o">O win %</span></div>
     </div>
-
     <div class="game-inner">
       <div class="win-bars">
         <div class="win-bar-wrap">
@@ -130,13 +130,13 @@
         </div>
       </div>
     </div>
-
     <div class="game-btns">
       <button class="gbtn purple" onclick="newRound()">New Round</button>
       <button class="gbtn" onclick="goHome()">&#8962; Home</button>
     </div>
     <div class="memo-note" id="memo-note"></div>
   </div>
+</div>
 </div>
 </body>
 </html>
