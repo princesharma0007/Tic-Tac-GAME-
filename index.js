@@ -36,7 +36,7 @@ function startGame(m,d){
     document.getElementById('leg-o').textContent='AI win %';
     var ind=document.getElementById('diff-ind');
     ind.style.display='inline-block';
-    var labels={easy:'🌿 Easy',medium:'🔥 Medium',hard:'👿 Hard'};
+    var labels={easy:'Easy',medium:'Medium',hard:'Hard'};
     var cls={easy:'di-easy',medium:'di-medium',hard:'di-hard'};
     ind.textContent=labels[diff]; ind.className='diff-ind '+cls[diff];
     document.getElementById('memo-note').textContent=diff==='hard'?'AI remembers '+Object.keys(moveMemory).length+' positions':'';
